@@ -45,7 +45,7 @@ echo "Installiere $APP_NAME $version ..."
 chmod 0755 "$work"
 chmod 0644 "$work/$asset"
 apt-get -o DPkg::Lock::Timeout=120 update
-apt-get -o DPkg::Lock::Timeout=120 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --no-remove --no-install-recommends -y install "$work/$asset"
+apt-get -o DPkg::Lock::Timeout=120 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --fix-broken --no-remove --no-install-recommends -y install "$work/$asset"
 systemctl daemon-reload
 systemctl enable --now "$UNIT"
 systemctl restart "$UNIT"
