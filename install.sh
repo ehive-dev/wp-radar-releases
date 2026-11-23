@@ -10,7 +10,7 @@ while (( $# )); do
   case "$1" in --tag) TAG="${2:?Tag fehlt}"; shift 2;; *) echo "Unbekanntes Argument: $1" >&2; exit 2;; esac
 done
 [[ "$(id -u)" == 0 ]] || { echo 'Bitte als root ausführen.' >&2; exit 1; }
-for tool in curl jq dpkg dpkg-deb sha256sum systemctl; do command -v "$tool" >/dev/null || { echo "Werkzeug fehlt: $tool" >&2; exit 1; }; done
+for tool in curl jq dpkg dpkg-deb sha256sum systemctl apt-get; do command -v "$tool" >/dev/null || { echo "Werkzeug fehlt: $tool" >&2; exit 1; }; done
 [[ "$(dpkg --print-architecture)" == arm64 ]] || { echo 'Dieses Paket benötigt arm64.' >&2; exit 1; }
 work="$(mktemp -d -t ehive-app-install.XXXXXX)"
 finish(){ local rc=$?; trap - EXIT; rm -rf -- "$work"; exit "$rc"; }
@@ -41,7 +41,11 @@ actual="$(sha256sum "$work/$asset")"; actual="${actual%% *}"
 [[ "$(dpkg-deb -f "$work/$asset" Package)" == "$APP_NAME" && "$(dpkg-deb -f "$work/$asset" Version)" == "$deb_version" && "$(dpkg-deb -f "$work/$asset" Architecture)" == arm64 ]] || { echo 'Paket passt nicht zu Name, Version oder Architektur.' >&2; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 echo "Installiere $APP_NAME $version ..."
-dpkg --force-confdef --force-confold -i "$work/$asset"
+# Allow apt's unprivileged download user to read this public, verified package.
+chmod 0755 "$work"
+chmod 0644 "$work/$asset"
+apt-get -o DPkg::Lock::Timeout=120 update
+apt-get -o DPkg::Lock::Timeout=120 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold --no-remove --no-install-recommends -y install "$work/$asset"
 systemctl daemon-reload
 systemctl enable --now "$UNIT"
 systemctl restart "$UNIT"
